@@ -232,7 +232,7 @@ def _validate_machine_sequence(
         )
 
 
-def run_fan_compressor_sequence_validation() -> None:
+def run_fan_compressor_sequence_validation() -> bool:
     """Validate fan/compressor startup, runtime, and shutdown sequencing."""
 
     try:
@@ -262,5 +262,7 @@ def run_fan_compressor_sequence_validation() -> None:
         for machine_id, machine_rows in rows_by_machine.items():
             machine_rows.sort(key=lambda item: item["parsed_esp_log_at"])
             _validate_machine_sequence(machine_id, machine_rows, now)
+        return True
     except Exception:
         logger.exception("Fan/compressor sequence validation failed")
+        return False

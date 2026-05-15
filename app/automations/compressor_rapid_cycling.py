@@ -49,7 +49,7 @@ def _count_transitions(rows: list[dict[str, Any]]) -> int:
     return transitions
 
 
-def run_compressor_rapid_cycling_detection() -> None:
+def run_compressor_rapid_cycling_detection() -> bool:
     """Detect rapid cycling and resolve alerts after compressor behavior stabilizes."""
 
     try:
@@ -100,5 +100,7 @@ def run_compressor_rapid_cycling_detection() -> None:
                     "threshold": TRANSITION_THRESHOLD,
                 },
             )
+        return True
     except Exception:
         logger.exception("Compressor rapid cycling detection failed")
+        return False

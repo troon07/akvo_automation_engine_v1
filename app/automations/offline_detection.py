@@ -37,7 +37,7 @@ def _parse_esp_log_at(value: Any) -> datetime | None:
     return timestamp.astimezone(UTC)
 
 
-def run_offline_detection() -> None:
+def run_offline_detection() -> bool:
     """Detect offline machines and resolve offline alerts after recovery."""
 
     try:
@@ -103,5 +103,7 @@ def run_offline_detection() -> None:
                 },
             )
 
+        return True
     except Exception:
         logger.exception("Offline detection automation failed")
+        return False

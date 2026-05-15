@@ -314,3 +314,45 @@ Before diagnosing AI-generated code failures:
 - inspect final file state when uncertain
 
 
+## 22. Indexing Should Follow Real Query Patterns, Not Premature Assumptions
+
+Observation:
+Indexes became valuable only after:
+- multiple automations existed
+- historical scans existed
+- alert lifecycle queries increased
+
+Lesson:
+Add indexes based on actual query behavior and operational patterns, not speculative optimization.
+
+
+## 23. Health Endpoints Should Validate Infrastructure, Not Business Logic
+
+Observation:
+A lightweight health endpoint provides far more reliable operational visibility than heavy application-level checks.
+
+Lesson:
+Health endpoints should:
+- validate infrastructure availability
+- remain lightweight
+- avoid historical scans
+- avoid business analytics queries
+
+Fast and reliable health checks are critical for production systems.
+
+
+## 25. Lightweight Runtime Metrics Provide Huge Operational Value
+
+Observation:
+Simple in-memory execution metrics provided strong operational visibility without requiring external monitoring infrastructure.
+
+Benefits:
+- execution visibility
+- failure tracking
+- runtime diagnostics
+- scheduler observability
+
+Lesson:
+Operational insight can often be achieved with lightweight internal instrumentation before adopting large monitoring stacks.
+
+
