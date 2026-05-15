@@ -2,6 +2,12 @@ import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from app.automations.compressor_rapid_cycling import (
+    run_compressor_rapid_cycling_detection,
+)
+from app.automations.fan_compressor_sequence_validation import (
+    run_fan_compressor_sequence_validation,
+)
 from app.automations.offline_detection import run_offline_detection
 from app.config.settings import get_settings
 
@@ -29,6 +35,28 @@ def register_automation_jobs() -> None:
         replace_existing=True,
     )
     logger.info("Registered offline detection automation")
+
+    scheduler.add_job(
+        run_compressor_rapid_cycling_detection,
+        "interval",
+        minutes=2,
+        id="compressor_rapid_cycling",
+        max_instances=1,
+        coalesce=True,
+        replace_existing=True,
+    )
+    logger.info("Registered compressor rapid cycling automation")
+
+    scheduler.add_job(
+        run_fan_compressor_sequence_validation,
+        "interval",
+        minutes=1,
+        id="fan_compressor_sequence_validation",
+        max_instances=1,
+        coalesce=True,
+        replace_existing=True,
+    )
+    logger.info("Registered fan/compressor sequence validation automation")
 
 
 def start_scheduler() -> None:

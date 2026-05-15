@@ -72,6 +72,47 @@ def get_all_latest_machine_states() -> list[dict[str, Any]]:
         return []
 
 
+def get_sensor_data_since(since: datetime) -> list[dict[str, Any]]:
+    """Fetch recent sensor rows from esp_sensor_data since the given timestamp."""
+
+    try:
+        client = get_supabase_client()
+        response = (
+            client.table("esp_sensor_data")
+            .select("machine_id, compressor_status, esp_log_at")
+            .gte("esp_log_at", since.isoformat())
+            .order("machine_id", desc=False)
+            .order("esp_log_at", desc=False)
+            .execute()
+        )
+        return response.data or []
+    except Exception:
+        logger.exception("Failed to fetch sensor data since %s", since.isoformat())
+        return []
+
+
+def get_fan_compressor_sensor_data_since(since: datetime) -> list[dict[str, Any]]:
+    """Fetch recent fan and compressor sensor rows since the given timestamp."""
+
+    try:
+        client = get_supabase_client()
+        response = (
+            client.table("esp_sensor_data")
+            .select("machine_id, fan_status, compressor_status, esp_log_at")
+            .gte("esp_log_at", since.isoformat())
+            .order("machine_id", desc=False)
+            .order("esp_log_at", desc=False)
+            .execute()
+        )
+        return response.data or []
+    except Exception:
+        logger.exception(
+            "Failed to fetch fan/compressor sensor data since %s",
+            since.isoformat(),
+        )
+        return []
+
+
 def create_alert(
     machine_id: str,
     alert_type: str,
@@ -128,7 +169,7 @@ def resolve_alert(machine_id: str, alert_type: str) -> dict[str, Any] | None:
         resolved_at = datetime.now(UTC).isoformat()
         response = (
             client.table("alerts")
-            .update({"resolved": True,"resolved_at": resolved_at})
+            .update({"resolved": True, "resolved_at": resolved_at})
             .eq("machine_id", machine_id)
             .eq("alert_type", alert_type)
             .eq("resolved", False)
@@ -151,8 +192,6 @@ def resolve_alert(machine_id: str, alert_type: str) -> dict[str, Any] | None:
             alert_type,
         )
         return None
-
-
 
 def has_unresolved_alert(
     machine_id: str,
