@@ -257,7 +257,7 @@ def insert_telemetry(rows: list[dict[str, Any]]) -> None:
     """Insert telemetry rows into Supabase and log what was sent."""
 
     if not rows:
-        logger.warning("No telemetry rows generated")
+        logger.warning("event=telemetry_generation_empty status=skipped")
         return
 
     client = get_supabase_client()
@@ -266,7 +266,7 @@ def insert_telemetry(rows: list[dict[str, Any]]) -> None:
 
     for row in rows:
         logger.info(
-            "Inserted telemetry: machine_id=%s esp_log_at=%s fan=%s compressor=%s mode=%s fault=%s",
+            "event=telemetry_inserted machine_id=%s esp_log_at=%s fan_status=%s compressor_status=%s mode=%s fault_code=%s status=inserted",
             row["machine_id"],
             row["esp_log_at"],
             row["fan_status"],
@@ -275,7 +275,10 @@ def insert_telemetry(rows: list[dict[str, Any]]) -> None:
             row["fault_code"],
         )
 
-    logger.info("Inserted %s telemetry rows into esp_sensor_data", inserted_count)
+    logger.info(
+        "event=telemetry_batch_inserted inserted_count=%s status=success",
+        inserted_count,
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -305,14 +308,23 @@ def main() -> int:
         rows = SCENARIOS[args.scenario](args.machine_id, now)
 
         logger.info(
-            "Running telemetry scenario '%s' for machine_id=%s",
+            "event=telemetry_scenario_started scenario=%s machine_id=%s status=running",
             args.scenario,
             args.machine_id,
         )
         insert_telemetry(rows)
+        logger.info(
+            "event=telemetry_scenario_finished scenario=%s machine_id=%s status=success",
+            args.scenario,
+            args.machine_id,
+        )
         return 0
     except Exception:
-        logger.exception("Telemetry simulation failed")
+        logger.exception(
+            "event=telemetry_simulation_failed scenario=%s machine_id=%s status=failed",
+            args.scenario,
+            args.machine_id,
+        )
         return 1
 
 

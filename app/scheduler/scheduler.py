@@ -40,7 +40,11 @@ def register_automation_jobs() -> None:
         coalesce=True,
         replace_existing=True,
     )
-    logger.info("Registered offline detection automation")
+    logger.info(
+        "event=automation_registered automation_id=%s interval_seconds=%s status=registered",
+        offline_detection_id,
+        60,
+    )
 
     compressor_rapid_cycling_id = "compressor_rapid_cycling"
     register_automation_metric(compressor_rapid_cycling_id)
@@ -56,7 +60,11 @@ def register_automation_jobs() -> None:
         coalesce=True,
         replace_existing=True,
     )
-    logger.info("Registered compressor rapid cycling automation")
+    logger.info(
+        "event=automation_registered automation_id=%s interval_seconds=%s status=registered",
+        compressor_rapid_cycling_id,
+        120,
+    )
 
     fan_compressor_sequence_validation_id = "fan_compressor_sequence_validation"
     register_automation_metric(fan_compressor_sequence_validation_id)
@@ -72,23 +80,30 @@ def register_automation_jobs() -> None:
         coalesce=True,
         replace_existing=True,
     )
-    logger.info("Registered fan/compressor sequence validation automation")
+    logger.info(
+        "event=automation_registered automation_id=%s interval_seconds=%s status=registered",
+        fan_compressor_sequence_validation_id,
+        60,
+    )
 
 
 def start_scheduler() -> None:
     if scheduler.running:
-        logger.debug("Scheduler already running")
+        logger.debug("event=scheduler_start_skipped status=already_running")
         return
 
     register_automation_jobs()
     scheduler.start()
-    logger.info("Scheduler started")
+    logger.info(
+        "event=scheduler_started status=running registered_automations=%s",
+        len(scheduler.get_jobs()),
+    )
 
 
 def shutdown_scheduler() -> None:
     if not scheduler.running:
-        logger.debug("Scheduler already stopped")
+        logger.debug("event=scheduler_shutdown_skipped status=already_stopped")
         return
 
     scheduler.shutdown(wait=False)
-    logger.info("Scheduler stopped")
+    logger.info("event=scheduler_stopped status=stopped")

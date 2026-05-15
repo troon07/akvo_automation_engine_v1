@@ -25,10 +25,16 @@ def _parse_esp_log_at(value: Any) -> datetime | None:
         try:
             timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
-            logger.warning("Invalid esp_log_at timestamp received: %s", value)
+            logger.warning(
+                "event=invalid_sensor_timestamp esp_log_at=%s status=skipped",
+                value,
+            )
             return None
     else:
-        logger.warning("Unsupported esp_log_at value received: %r", value)
+        logger.warning(
+            "event=unsupported_sensor_timestamp esp_log_at=%r status=skipped",
+            value,
+        )
         return None
 
     if timestamp.tzinfo is None:
@@ -50,14 +56,14 @@ def run_offline_detection() -> bool:
 
             if not machine_id:
                 logger.warning(
-                    "Skipping sensor state without machine_id: %s",
+                    "event=sensor_state_missing_machine_id state=%s status=skipped",
                     state,
                 )
                 continue
 
             if esp_log_at is None:
                 logger.warning(
-                    "Skipping offline check for machine_id=%s due to missing timestamp",
+                    "event=offline_check_skipped machine_id=%s reason=missing_timestamp status=skipped",
                     machine_id,
                 )
                 continue
@@ -78,15 +84,18 @@ def run_offline_detection() -> bool:
 
                     if resolved_alert:
                         logger.info(
-                            "Machine recovered: machine_id=%s",
+                            "event=machine_recovered machine_id=%s alert_type=%s status=resolved",
                             machine_id,
+                            OFFLINE_ALERT_TYPE,
                         )
 
                 continue
 
             logger.warning(
-                "Machine offline detected: machine_id=%s last_seen=%s",
+                "event=machine_offline_detected machine_id=%s alert_type=%s offline_seconds=%s last_seen_at=%s status=alerting",
                 machine_id,
+                OFFLINE_ALERT_TYPE,
+                int(offline_duration.total_seconds()),
                 esp_log_at.isoformat(),
             )
 
@@ -105,5 +114,7 @@ def run_offline_detection() -> bool:
 
         return True
     except Exception:
-        logger.exception("Offline detection automation failed")
+        logger.exception(
+            "event=automation_failed automation_id=offline_detection status=failed"
+        )
         return False

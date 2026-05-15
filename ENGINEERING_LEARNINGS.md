@@ -356,3 +356,18 @@ Lesson:
 Operational insight can often be achieved with lightweight internal instrumentation before adopting large monitoring stacks.
 
 
+## 26. Execution Duration Metrics Reveal Scaling Risk Early
+
+Observation:
+Automation execution metrics exposed real runtime costs long before large-scale deployment.
+
+Benefits:
+- early bottleneck visibility
+- scheduler performance insight
+- historical query cost awareness
+
+Lesson:
+Basic execution timing instrumentation is one of the highest-value low-complexity observability features in backend systems.
+
+
+

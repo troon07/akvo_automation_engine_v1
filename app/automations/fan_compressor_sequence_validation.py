@@ -34,10 +34,16 @@ def _parse_esp_log_at(value: Any) -> datetime | None:
         try:
             timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
-            logger.warning("Invalid esp_log_at timestamp received: %s", value)
+            logger.warning(
+                "event=invalid_sensor_timestamp esp_log_at=%s status=skipped",
+                value,
+            )
             return None
     else:
-        logger.warning("Unsupported esp_log_at value received: %r", value)
+        logger.warning(
+            "event=unsupported_sensor_timestamp esp_log_at=%r status=skipped",
+            value,
+        )
         return None
 
     if timestamp.tzinfo is None:
@@ -72,7 +78,7 @@ def _resolve_if_unresolved(machine_id: str, alert_type: str, log_message: str) -
 
     resolved_alert = resolve_alert(machine_id=machine_id, alert_type=alert_type)
     if resolved_alert:
-        logger.info(log_message, machine_id)
+        logger.info(log_message, machine_id, alert_type)
 
 
 def _fan_was_continuously_on(
@@ -125,8 +131,9 @@ def _validate_machine_sequence(
         if previous_compressor_on is False and current_compressor_on is True:
             if event_time - STARTUP_FAN_LEAD_TIME < earliest_row_time:
                 logger.debug(
-                    "Skipping startup validation with insufficient history: machine_id=%s",
+                    "event=startup_sequence_validation_skipped machine_id=%s alert_type=%s reason=insufficient_history status=skipped",
                     machine_id,
+                    STARTUP_ALERT_TYPE,
                 )
                 previous_compressor_on = current_compressor_on
                 continue
@@ -139,8 +146,9 @@ def _validate_machine_sequence(
             if not fan_ready:
                 startup_violation = True
                 logger.warning(
-                    "Improper startup sequence detected: machine_id=%s",
+                    "event=improper_startup_sequence_detected machine_id=%s alert_type=%s status=alerting",
                     machine_id,
+                    STARTUP_ALERT_TYPE,
                 )
 
         if previous_compressor_on is True and current_compressor_on is False:
@@ -161,8 +169,9 @@ def _validate_machine_sequence(
             if fan_is_off_in_window or (shutdown_complete and not fan_stayed_on):
                 shutdown_violation = True
                 logger.warning(
-                    "Improper shutdown sequence detected: machine_id=%s",
+                    "event=improper_shutdown_sequence_detected machine_id=%s alert_type=%s status=alerting",
                     machine_id,
+                    SHUTDOWN_ALERT_TYPE,
                 )
             elif not shutdown_complete:
                 shutdown_pending = True
@@ -172,8 +181,9 @@ def _validate_machine_sequence(
     runtime_mismatch = _has_runtime_mismatch(latest_row)
     if runtime_mismatch:
         logger.warning(
-            "Fan/compressor mismatch detected: machine_id=%s",
+            "event=fan_compressor_mismatch_detected machine_id=%s alert_type=%s status=alerting",
             machine_id,
+            RUNTIME_ALERT_TYPE,
         )
         create_alert(
             machine_id=machine_id,
@@ -190,7 +200,7 @@ def _validate_machine_sequence(
         _resolve_if_unresolved(
             machine_id=machine_id,
             alert_type=RUNTIME_ALERT_TYPE,
-            log_message="Fan/compressor mismatch resolved: machine_id=%s",
+            log_message="event=fan_compressor_mismatch_resolved machine_id=%s alert_type=%s status=resolved",
         )
 
     if startup_violation:
@@ -209,7 +219,7 @@ def _validate_machine_sequence(
         _resolve_if_unresolved(
             machine_id=machine_id,
             alert_type=STARTUP_ALERT_TYPE,
-            log_message="Startup sequence stabilized: machine_id=%s",
+            log_message="event=startup_sequence_stabilized machine_id=%s alert_type=%s status=resolved",
         )
 
     if shutdown_violation:
@@ -228,7 +238,7 @@ def _validate_machine_sequence(
         _resolve_if_unresolved(
             machine_id=machine_id,
             alert_type=SHUTDOWN_ALERT_TYPE,
-            log_message="Shutdown sequence stabilized: machine_id=%s",
+            log_message="event=shutdown_sequence_stabilized machine_id=%s alert_type=%s status=resolved",
         )
 
 
@@ -244,13 +254,16 @@ def run_fan_compressor_sequence_validation() -> bool:
         for row in sensor_rows:
             machine_id = row.get("machine_id")
             if not machine_id:
-                logger.warning("Skipping sensor row without machine_id: %s", row)
+                logger.warning(
+                    "event=sensor_row_missing_machine_id row=%s status=skipped",
+                    row,
+                )
                 continue
 
             parsed_timestamp = _parse_esp_log_at(row.get("esp_log_at"))
             if parsed_timestamp is None:
                 logger.warning(
-                    "Skipping sequence validation row without valid timestamp: %s",
+                    "event=sequence_validation_row_skipped reason=invalid_timestamp row=%s status=skipped",
                     row,
                 )
                 continue
@@ -264,5 +277,7 @@ def run_fan_compressor_sequence_validation() -> bool:
             _validate_machine_sequence(machine_id, machine_rows, now)
         return True
     except Exception:
-        logger.exception("Fan/compressor sequence validation failed")
+        logger.exception(
+            "event=automation_failed automation_id=fan_compressor_sequence_validation status=failed"
+        )
         return False

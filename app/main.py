@@ -44,13 +44,13 @@ def health_check() -> dict[str, object]:
         get_supabase_client()
         supabase_connected = True
     except Exception:
-        logger.exception("Supabase health check failed")
+        logger.exception("event=health_supabase_check_failed status=failed")
         supabase_connected = False
 
     try:
         registered_automations = len(scheduler.get_jobs())
     except Exception:
-        logger.exception("Failed to inspect scheduler jobs")
+        logger.exception("event=health_scheduler_jobs_check_failed status=failed")
         registered_automations = 0
 
     status = "ok" if scheduler_running and supabase_connected else "degraded"
@@ -72,7 +72,7 @@ def automation_metrics() -> dict[str, object]:
             "automations": get_automation_metrics(),
         }
     except Exception:
-        logger.exception("Failed to collect automation metrics")
+        logger.exception("event=automation_metrics_collection_failed status=failed")
         return {
             "status": "degraded",
             "automations": {},

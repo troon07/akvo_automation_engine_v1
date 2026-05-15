@@ -63,17 +63,31 @@ def track_automation_execution(
         except Exception:
             duration_ms = round((perf_counter() - started_at) * 1000, 2)
             _record_failure(automation_id, duration_ms)
-            logger.exception("Automation job failed: automation_id=%s", automation_id)
+            logger.exception(
+                "event=automation_execution_failed automation_id=%s execution_duration_ms=%s status=failed",
+                automation_id,
+                duration_ms,
+            )
             raise
 
         duration_ms = round((perf_counter() - started_at) * 1000, 2)
         if result is False:
             _record_failure(automation_id, duration_ms)
+            logger.warning(
+                "event=automation_execution_finished automation_id=%s execution_duration_ms=%s status=failed",
+                automation_id,
+                duration_ms,
+            )
         else:
             with _metrics_lock:
                 metrics = _automation_metrics[automation_id]
                 metrics["last_success_at"] = _utc_now_iso()
                 metrics["execution_duration_ms"] = duration_ms
+            logger.info(
+                "event=automation_execution_finished automation_id=%s execution_duration_ms=%s status=success",
+                automation_id,
+                duration_ms,
+            )
 
         return result
 

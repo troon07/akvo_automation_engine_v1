@@ -60,7 +60,10 @@ def run_compressor_rapid_cycling_detection() -> bool:
         for row in sensor_rows:
             machine_id = row.get("machine_id")
             if not machine_id:
-                logger.warning("Skipping sensor row without machine_id: %s", row)
+                logger.warning(
+                    "event=sensor_row_missing_machine_id row=%s status=skipped",
+                    row,
+                )
                 continue
 
             rows_by_machine[str(machine_id)].append(row)
@@ -78,16 +81,20 @@ def run_compressor_rapid_cycling_detection() -> bool:
                     )
                     if resolved_alert:
                         logger.info(
-                            "Compressor cycling stabilized: machine_id=%s",
+                            "event=compressor_cycling_stabilized machine_id=%s alert_type=%s transitions=%s status=resolved",
                             machine_id,
+                            ALERT_TYPE,
+                            transitions,
                         )
 
                 continue
 
             logger.warning(
-                "Compressor rapid cycling detected: machine_id=%s transitions=%s",
+                "event=compressor_rapid_cycling_detected machine_id=%s alert_type=%s transitions=%s threshold=%s status=alerting",
                 machine_id,
+                ALERT_TYPE,
                 transitions,
+                TRANSITION_THRESHOLD,
             )
             create_alert(
                 machine_id=machine_id,
@@ -102,5 +109,7 @@ def run_compressor_rapid_cycling_detection() -> bool:
             )
         return True
     except Exception:
-        logger.exception("Compressor rapid cycling detection failed")
+        logger.exception(
+            "event=automation_failed automation_id=compressor_rapid_cycling status=failed"
+        )
         return False

@@ -20,7 +20,7 @@ def fetch_active_automations() -> list[dict[str, Any]]:
         )
         return response.data or []
     except Exception:
-        logger.exception("Failed to fetch active automations")
+        logger.exception("event=fetch_active_automations_failed status=failed")
         return []
 
 
@@ -41,7 +41,8 @@ def get_latest_sensor_data(machine_id: str) -> dict[str, Any] | None:
         return rows[0] if rows else None
     except Exception:
         logger.exception(
-            "Failed to fetch latest sensor data for machine_id=%s", machine_id
+            "event=get_latest_sensor_data_failed machine_id=%s status=failed",
+            machine_id,
         )
         return None
 
@@ -63,12 +64,12 @@ def get_all_latest_machine_states() -> list[dict[str, Any]]:
             return data
 
         logger.warning(
-            "Latest machine states RPC returned non-list payload: %s",
+            "event=latest_machine_states_invalid_payload payload_type=%s status=warning",
             type(data).__name__,
         )
         return []
     except Exception:
-        logger.exception("Failed to fetch latest machine states")
+        logger.exception("event=get_latest_machine_states_failed status=failed")
         return []
 
 
@@ -87,7 +88,10 @@ def get_sensor_data_since(since: datetime) -> list[dict[str, Any]]:
         )
         return response.data or []
     except Exception:
-        logger.exception("Failed to fetch sensor data since %s", since.isoformat())
+        logger.exception(
+            "event=get_sensor_data_since_failed since=%s status=failed",
+            since.isoformat(),
+        )
         return []
 
 
@@ -107,7 +111,7 @@ def get_fan_compressor_sensor_data_since(since: datetime) -> list[dict[str, Any]
         return response.data or []
     except Exception:
         logger.exception(
-            "Failed to fetch fan/compressor sensor data since %s",
+            "event=get_fan_compressor_sensor_data_since_failed since=%s status=failed",
             since.isoformat(),
         )
         return []
@@ -136,7 +140,7 @@ def create_alert(
         existing_alerts = existing_response.data or []
         if existing_alerts:
             logger.info(
-                "Unresolved alert already exists for machine_id=%s alert_type=%s",
+                "event=alert_duplicate_unresolved machine_id=%s alert_type=%s status=skipped",
                 machine_id,
                 alert_type,
             )
@@ -151,10 +155,16 @@ def create_alert(
         }
         insert_response = client.table("alerts").insert(payload).execute()
         inserted_alerts = insert_response.data or []
+        logger.info(
+            "event=alert_created machine_id=%s alert_type=%s severity=%s status=created",
+            machine_id,
+            alert_type,
+            severity,
+        )
         return inserted_alerts[0] if inserted_alerts else None
     except Exception:
         logger.exception(
-            "Failed to create alert for machine_id=%s alert_type=%s",
+            "event=alert_create_failed machine_id=%s alert_type=%s status=failed",
             machine_id,
             alert_type,
         )
@@ -177,17 +187,22 @@ def resolve_alert(machine_id: str, alert_type: str) -> dict[str, Any] | None:
         )
         resolved_alerts = response.data or []
         if not resolved_alerts:
-            logger.info(
-                "No unresolved alert found for machine_id=%s alert_type=%s",
+            logger.debug(
+                "event=alert_resolve_noop machine_id=%s alert_type=%s status=skipped",
                 machine_id,
                 alert_type,
             )
             return None
 
+        logger.info(
+            "event=alert_resolved machine_id=%s alert_type=%s status=resolved",
+            machine_id,
+            alert_type,
+        )
         return resolved_alerts[0]
     except Exception:
         logger.exception(
-            "Failed to resolve alert for machine_id=%s alert_type=%s",
+            "event=alert_resolve_failed machine_id=%s alert_type=%s status=failed",
             machine_id,
             alert_type,
         )
@@ -216,8 +231,7 @@ def has_unresolved_alert(
 
     except Exception:
         logger.exception(
-            "Failed checking unresolved alert for "
-            "machine_id=%s alert_type=%s",
+            "event=has_unresolved_alert_failed machine_id=%s alert_type=%s status=failed",
             machine_id,
             alert_type,
         )

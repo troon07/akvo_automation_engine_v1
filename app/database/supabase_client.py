@@ -19,5 +19,5 @@ def get_supabase_client() -> Client:
             "SUPABASE_KEY in the environment or .env file."
         )
 
-    logger.info("Initializing Supabase client")
+    logger.info("event=supabase_client_initialized status=ok")
     return create_client(settings.supabase_url, settings.supabase_key)
