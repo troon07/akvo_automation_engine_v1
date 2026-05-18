@@ -36,6 +36,13 @@ class FanCompressorSequenceSettings:
     lookback_window: timedelta = timedelta(minutes=10)
 
 
+@dataclass(frozen=True)
+class OperationalIntegrityValidationSettings:
+    automation_id: str = "operational_integrity_validation"
+    scheduler_interval_seconds: int = 60
+
+
 OFFLINE_DETECTION = OfflineDetectionSettings()
 COMPRESSOR_RAPID_CYCLING = CompressorRapidCyclingSettings()
 FAN_COMPRESSOR_SEQUENCE = FanCompressorSequenceSettings()
+OPERATIONAL_INTEGRITY_VALIDATION = OperationalIntegrityValidationSettings()

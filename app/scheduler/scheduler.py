@@ -9,10 +9,14 @@ from app.automations.fan_compressor_sequence_validation import (
     run_fan_compressor_sequence_validation,
 )
 from app.automations.offline_detection import run_offline_detection
+from app.automations.operational_integrity_validation import (
+    run_operational_integrity_validation,
+)
 from app.config.automation_settings import (
     COMPRESSOR_RAPID_CYCLING,
     FAN_COMPRESSOR_SEQUENCE,
     OFFLINE_DETECTION,
+    OPERATIONAL_INTEGRITY_VALIDATION,
 )
 from app.config.settings import get_settings
 from app.scheduler.metrics import (
@@ -89,6 +93,28 @@ def register_automation_jobs() -> None:
         "event=automation_registered automation_id=%s interval_seconds=%s status=registered",
         fan_compressor_sequence_validation_id,
         FAN_COMPRESSOR_SEQUENCE.scheduler_interval_seconds,
+    )
+
+    operational_integrity_validation_id = (
+        OPERATIONAL_INTEGRITY_VALIDATION.automation_id
+    )
+    register_automation_metric(operational_integrity_validation_id)
+    scheduler.add_job(
+        track_automation_execution(
+            operational_integrity_validation_id,
+            run_operational_integrity_validation,
+        ),
+        "interval",
+        seconds=OPERATIONAL_INTEGRITY_VALIDATION.scheduler_interval_seconds,
+        id=operational_integrity_validation_id,
+        max_instances=1,
+        coalesce=True,
+        replace_existing=True,
+    )
+    logger.info(
+        "event=automation_registered automation_id=%s interval_seconds=%s status=registered",
+        operational_integrity_validation_id,
+        OPERATIONAL_INTEGRITY_VALIDATION.scheduler_interval_seconds,
     )
 
 
