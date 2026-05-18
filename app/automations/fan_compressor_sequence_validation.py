@@ -1,8 +1,9 @@
 import logging
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
+from app.config.automation_settings import FAN_COMPRESSOR_SEQUENCE
 from app.database.queries import (
     create_alert,
     get_fan_compressor_sensor_data_since,
@@ -11,18 +12,6 @@ from app.database.queries import (
 )
 
 logger = logging.getLogger(__name__)
-
-STARTUP_ALERT_TYPE = "improper_startup_sequence"
-RUNTIME_ALERT_TYPE = "fan_compressor_mismatch"
-SHUTDOWN_ALERT_TYPE = "improper_shutdown_sequence"
-
-STARTUP_SEVERITY = "warning"
-RUNTIME_SEVERITY = "critical"
-SHUTDOWN_SEVERITY = "warning"
-
-STARTUP_FAN_LEAD_TIME = timedelta(minutes=5)
-SHUTDOWN_FAN_RUN_TIME = timedelta(minutes=2)
-LOOKBACK_WINDOW = timedelta(minutes=10)
 
 
 def _parse_esp_log_at(value: Any) -> datetime | None:
@@ -129,18 +118,22 @@ def _validate_machine_sequence(
         event_time = row["parsed_esp_log_at"]
 
         if previous_compressor_on is False and current_compressor_on is True:
-            if event_time - STARTUP_FAN_LEAD_TIME < earliest_row_time:
+            if (
+                event_time - FAN_COMPRESSOR_SEQUENCE.startup_fan_lead_time
+                < earliest_row_time
+            ):
                 logger.debug(
                     "event=startup_sequence_validation_skipped machine_id=%s alert_type=%s reason=insufficient_history status=skipped",
                     machine_id,
-                    STARTUP_ALERT_TYPE,
+                    FAN_COMPRESSOR_SEQUENCE.startup_alert_type,
                 )
                 previous_compressor_on = current_compressor_on
                 continue
 
             fan_ready = _fan_was_continuously_on(
                 rows=rows,
-                start_time=event_time - STARTUP_FAN_LEAD_TIME,
+                start_time=event_time
+                - FAN_COMPRESSOR_SEQUENCE.startup_fan_lead_time,
                 end_time=event_time,
             )
             if not fan_ready:
@@ -148,12 +141,17 @@ def _validate_machine_sequence(
                 logger.warning(
                     "event=improper_startup_sequence_detected machine_id=%s alert_type=%s status=alerting",
                     machine_id,
-                    STARTUP_ALERT_TYPE,
+                    FAN_COMPRESSOR_SEQUENCE.startup_alert_type,
                 )
 
         if previous_compressor_on is True and current_compressor_on is False:
-            validation_end = min(event_time + SHUTDOWN_FAN_RUN_TIME, now)
-            shutdown_complete = event_time + SHUTDOWN_FAN_RUN_TIME <= now
+            validation_end = min(
+                event_time + FAN_COMPRESSOR_SEQUENCE.shutdown_fan_run_time,
+                now,
+            )
+            shutdown_complete = (
+                event_time + FAN_COMPRESSOR_SEQUENCE.shutdown_fan_run_time <= now
+            )
             shutdown_window = [
                 item
                 for item in rows[index:]
@@ -171,7 +169,7 @@ def _validate_machine_sequence(
                 logger.warning(
                     "event=improper_shutdown_sequence_detected machine_id=%s alert_type=%s status=alerting",
                     machine_id,
-                    SHUTDOWN_ALERT_TYPE,
+                    FAN_COMPRESSOR_SEQUENCE.shutdown_alert_type,
                 )
             elif not shutdown_complete:
                 shutdown_pending = True
@@ -183,12 +181,12 @@ def _validate_machine_sequence(
         logger.warning(
             "event=fan_compressor_mismatch_detected machine_id=%s alert_type=%s status=alerting",
             machine_id,
-            RUNTIME_ALERT_TYPE,
+            FAN_COMPRESSOR_SEQUENCE.runtime_alert_type,
         )
         create_alert(
             machine_id=machine_id,
-            alert_type=RUNTIME_ALERT_TYPE,
-            severity=RUNTIME_SEVERITY,
+            alert_type=FAN_COMPRESSOR_SEQUENCE.runtime_alert_type,
+            severity=FAN_COMPRESSOR_SEQUENCE.runtime_severity,
             message="Fan must remain ON while compressor is ON.",
             metadata={
                 "fan_status": latest_row.get("fan_status"),
@@ -199,45 +197,45 @@ def _validate_machine_sequence(
     else:
         _resolve_if_unresolved(
             machine_id=machine_id,
-            alert_type=RUNTIME_ALERT_TYPE,
+            alert_type=FAN_COMPRESSOR_SEQUENCE.runtime_alert_type,
             log_message="event=fan_compressor_mismatch_resolved machine_id=%s alert_type=%s status=resolved",
         )
 
     if startup_violation:
         create_alert(
             machine_id=machine_id,
-            alert_type=STARTUP_ALERT_TYPE,
-            severity=STARTUP_SEVERITY,
+            alert_type=FAN_COMPRESSOR_SEQUENCE.startup_alert_type,
+            severity=FAN_COMPRESSOR_SEQUENCE.startup_severity,
             message="Fan was not ON continuously for 5 minutes before compressor startup.",
             metadata={
                 "required_fan_lead_seconds": int(
-                    STARTUP_FAN_LEAD_TIME.total_seconds()
+                    FAN_COMPRESSOR_SEQUENCE.startup_fan_lead_time.total_seconds()
                 ),
             },
         )
     else:
         _resolve_if_unresolved(
             machine_id=machine_id,
-            alert_type=STARTUP_ALERT_TYPE,
+            alert_type=FAN_COMPRESSOR_SEQUENCE.startup_alert_type,
             log_message="event=startup_sequence_stabilized machine_id=%s alert_type=%s status=resolved",
         )
 
     if shutdown_violation:
         create_alert(
             machine_id=machine_id,
-            alert_type=SHUTDOWN_ALERT_TYPE,
-            severity=SHUTDOWN_SEVERITY,
+            alert_type=FAN_COMPRESSOR_SEQUENCE.shutdown_alert_type,
+            severity=FAN_COMPRESSOR_SEQUENCE.shutdown_severity,
             message="Fan did not remain ON for 2 minutes after compressor shutdown.",
             metadata={
                 "required_fan_runout_seconds": int(
-                    SHUTDOWN_FAN_RUN_TIME.total_seconds()
+                    FAN_COMPRESSOR_SEQUENCE.shutdown_fan_run_time.total_seconds()
                 ),
             },
         )
     elif not shutdown_pending:
         _resolve_if_unresolved(
             machine_id=machine_id,
-            alert_type=SHUTDOWN_ALERT_TYPE,
+            alert_type=FAN_COMPRESSOR_SEQUENCE.shutdown_alert_type,
             log_message="event=shutdown_sequence_stabilized machine_id=%s alert_type=%s status=resolved",
         )
 
@@ -247,7 +245,7 @@ def run_fan_compressor_sequence_validation() -> bool:
 
     try:
         now = datetime.now(UTC)
-        since = now - LOOKBACK_WINDOW
+        since = now - FAN_COMPRESSOR_SEQUENCE.lookback_window
         sensor_rows = get_fan_compressor_sensor_data_since(since)
         rows_by_machine: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
@@ -278,6 +276,7 @@ def run_fan_compressor_sequence_validation() -> bool:
         return True
     except Exception:
         logger.exception(
-            "event=automation_failed automation_id=fan_compressor_sequence_validation status=failed"
+            "event=automation_failed automation_id=%s status=failed",
+            FAN_COMPRESSOR_SEQUENCE.automation_id,
         )
         return False

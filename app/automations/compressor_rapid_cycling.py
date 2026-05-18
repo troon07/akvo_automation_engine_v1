@@ -1,8 +1,9 @@
 import logging
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
+from app.config.automation_settings import COMPRESSOR_RAPID_CYCLING
 from app.database.queries import (
     create_alert,
     get_sensor_data_since,
@@ -11,11 +12,6 @@ from app.database.queries import (
 )
 
 logger = logging.getLogger(__name__)
-
-ALERT_TYPE = "compressor_rapid_cycling"
-ALERT_SEVERITY = "warning"
-LOOKBACK_WINDOW = timedelta(minutes=10)
-TRANSITION_THRESHOLD = 3
 
 
 def _normalize_compressor_status(value: Any) -> str | None:
@@ -53,7 +49,7 @@ def run_compressor_rapid_cycling_detection() -> bool:
     """Detect rapid cycling and resolve alerts after compressor behavior stabilizes."""
 
     try:
-        since = datetime.now(UTC) - LOOKBACK_WINDOW
+        since = datetime.now(UTC) - COMPRESSOR_RAPID_CYCLING.lookback_window
         sensor_rows = get_sensor_data_since(since)
         rows_by_machine: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
@@ -70,20 +66,20 @@ def run_compressor_rapid_cycling_detection() -> bool:
 
         for machine_id, machine_rows in rows_by_machine.items():
             transitions = _count_transitions(machine_rows)
-            if transitions < TRANSITION_THRESHOLD:
+            if transitions < COMPRESSOR_RAPID_CYCLING.transition_threshold:
                 if has_unresolved_alert(
                     machine_id=machine_id,
-                    alert_type=ALERT_TYPE,
+                    alert_type=COMPRESSOR_RAPID_CYCLING.alert_type,
                 ):
                     resolved_alert = resolve_alert(
                         machine_id=machine_id,
-                        alert_type=ALERT_TYPE,
+                        alert_type=COMPRESSOR_RAPID_CYCLING.alert_type,
                     )
                     if resolved_alert:
                         logger.info(
                             "event=compressor_cycling_stabilized machine_id=%s alert_type=%s transitions=%s status=resolved",
                             machine_id,
-                            ALERT_TYPE,
+                            COMPRESSOR_RAPID_CYCLING.alert_type,
                             transitions,
                         )
 
@@ -92,24 +88,27 @@ def run_compressor_rapid_cycling_detection() -> bool:
             logger.warning(
                 "event=compressor_rapid_cycling_detected machine_id=%s alert_type=%s transitions=%s threshold=%s status=alerting",
                 machine_id,
-                ALERT_TYPE,
+                COMPRESSOR_RAPID_CYCLING.alert_type,
                 transitions,
-                TRANSITION_THRESHOLD,
+                COMPRESSOR_RAPID_CYCLING.transition_threshold,
             )
             create_alert(
                 machine_id=machine_id,
-                alert_type=ALERT_TYPE,
-                severity=ALERT_SEVERITY,
+                alert_type=COMPRESSOR_RAPID_CYCLING.alert_type,
+                severity=COMPRESSOR_RAPID_CYCLING.severity,
                 message="Compressor rapid cycling detected in the last 10 minutes.",
                 metadata={
-                    "lookback_minutes": int(LOOKBACK_WINDOW.total_seconds() / 60),
+                    "lookback_minutes": int(
+                        COMPRESSOR_RAPID_CYCLING.lookback_window.total_seconds() / 60
+                    ),
                     "transition_count": transitions,
-                    "threshold": TRANSITION_THRESHOLD,
+                    "threshold": COMPRESSOR_RAPID_CYCLING.transition_threshold,
                 },
             )
         return True
     except Exception:
         logger.exception(
-            "event=automation_failed automation_id=compressor_rapid_cycling status=failed"
+            "event=automation_failed automation_id=%s status=failed",
+            COMPRESSOR_RAPID_CYCLING.automation_id,
         )
         return False

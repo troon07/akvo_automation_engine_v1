@@ -1,7 +1,8 @@
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
+from app.config.automation_settings import OFFLINE_DETECTION
 from app.database.queries import (
     create_alert,
     get_all_latest_machine_states,
@@ -10,10 +11,6 @@ from app.database.queries import (
 )
 
 logger = logging.getLogger(__name__)
-
-OFFLINE_ALERT_TYPE = "machine_offline"
-OFFLINE_SEVERITY = "critical"
-OFFLINE_THRESHOLD = timedelta(minutes=5)
 
 
 def _parse_esp_log_at(value: Any) -> datetime | None:
@@ -70,23 +67,23 @@ def run_offline_detection() -> bool:
 
             offline_duration = now - esp_log_at
 
-            if offline_duration <= OFFLINE_THRESHOLD:
+            if offline_duration <= OFFLINE_DETECTION.offline_threshold:
 
                 if has_unresolved_alert(
                     machine_id=machine_id,
-                    alert_type=OFFLINE_ALERT_TYPE,
+                    alert_type=OFFLINE_DETECTION.alert_type,
                 ):
 
                     resolved_alert = resolve_alert(
                         machine_id=machine_id,
-                        alert_type=OFFLINE_ALERT_TYPE,
+                        alert_type=OFFLINE_DETECTION.alert_type,
                     )
 
                     if resolved_alert:
                         logger.info(
                             "event=machine_recovered machine_id=%s alert_type=%s status=resolved",
                             machine_id,
-                            OFFLINE_ALERT_TYPE,
+                            OFFLINE_DETECTION.alert_type,
                         )
 
                 continue
@@ -94,15 +91,15 @@ def run_offline_detection() -> bool:
             logger.warning(
                 "event=machine_offline_detected machine_id=%s alert_type=%s offline_seconds=%s last_seen_at=%s status=alerting",
                 machine_id,
-                OFFLINE_ALERT_TYPE,
+                OFFLINE_DETECTION.alert_type,
                 int(offline_duration.total_seconds()),
                 esp_log_at.isoformat(),
             )
 
             create_alert(
                 machine_id=machine_id,
-                alert_type=OFFLINE_ALERT_TYPE,
-                severity=OFFLINE_SEVERITY,
+                alert_type=OFFLINE_DETECTION.alert_type,
+                severity=OFFLINE_DETECTION.severity,
                 message="Machine is offline. No sensor data received for more than 5 minutes.",
                 metadata={
                     "last_seen_at": esp_log_at.isoformat(),
@@ -115,6 +112,7 @@ def run_offline_detection() -> bool:
         return True
     except Exception:
         logger.exception(
-            "event=automation_failed automation_id=offline_detection status=failed"
+            "event=automation_failed automation_id=%s status=failed",
+            OFFLINE_DETECTION.automation_id,
         )
         return False

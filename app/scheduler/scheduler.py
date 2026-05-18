@@ -9,6 +9,11 @@ from app.automations.fan_compressor_sequence_validation import (
     run_fan_compressor_sequence_validation,
 )
 from app.automations.offline_detection import run_offline_detection
+from app.config.automation_settings import (
+    COMPRESSOR_RAPID_CYCLING,
+    FAN_COMPRESSOR_SEQUENCE,
+    OFFLINE_DETECTION,
+)
 from app.config.settings import get_settings
 from app.scheduler.metrics import (
     register_automation_metric,
@@ -29,12 +34,12 @@ scheduler = build_scheduler()
 def register_automation_jobs() -> None:
     """Register recurring automation jobs with the scheduler."""
 
-    offline_detection_id = "offline_detection"
+    offline_detection_id = OFFLINE_DETECTION.automation_id
     register_automation_metric(offline_detection_id)
     scheduler.add_job(
         track_automation_execution(offline_detection_id, run_offline_detection),
         "interval",
-        seconds=60,
+        seconds=OFFLINE_DETECTION.scheduler_interval_seconds,
         id=offline_detection_id,
         max_instances=1,
         coalesce=True,
@@ -43,10 +48,10 @@ def register_automation_jobs() -> None:
     logger.info(
         "event=automation_registered automation_id=%s interval_seconds=%s status=registered",
         offline_detection_id,
-        60,
+        OFFLINE_DETECTION.scheduler_interval_seconds,
     )
 
-    compressor_rapid_cycling_id = "compressor_rapid_cycling"
+    compressor_rapid_cycling_id = COMPRESSOR_RAPID_CYCLING.automation_id
     register_automation_metric(compressor_rapid_cycling_id)
     scheduler.add_job(
         track_automation_execution(
@@ -54,7 +59,7 @@ def register_automation_jobs() -> None:
             run_compressor_rapid_cycling_detection,
         ),
         "interval",
-        minutes=2,
+        seconds=COMPRESSOR_RAPID_CYCLING.scheduler_interval_seconds,
         id=compressor_rapid_cycling_id,
         max_instances=1,
         coalesce=True,
@@ -63,10 +68,10 @@ def register_automation_jobs() -> None:
     logger.info(
         "event=automation_registered automation_id=%s interval_seconds=%s status=registered",
         compressor_rapid_cycling_id,
-        120,
+        COMPRESSOR_RAPID_CYCLING.scheduler_interval_seconds,
     )
 
-    fan_compressor_sequence_validation_id = "fan_compressor_sequence_validation"
+    fan_compressor_sequence_validation_id = FAN_COMPRESSOR_SEQUENCE.automation_id
     register_automation_metric(fan_compressor_sequence_validation_id)
     scheduler.add_job(
         track_automation_execution(
@@ -74,7 +79,7 @@ def register_automation_jobs() -> None:
             run_fan_compressor_sequence_validation,
         ),
         "interval",
-        minutes=1,
+        seconds=FAN_COMPRESSOR_SEQUENCE.scheduler_interval_seconds,
         id=fan_compressor_sequence_validation_id,
         max_instances=1,
         coalesce=True,
@@ -83,7 +88,7 @@ def register_automation_jobs() -> None:
     logger.info(
         "event=automation_registered automation_id=%s interval_seconds=%s status=registered",
         fan_compressor_sequence_validation_id,
-        60,
+        FAN_COMPRESSOR_SEQUENCE.scheduler_interval_seconds,
     )
 
 
