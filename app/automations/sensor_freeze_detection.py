@@ -11,6 +11,7 @@ from app.database.queries import (
     has_unresolved_alert,
     resolve_alert,
 )
+from app.services.automation_execution_logger import log_automation_execution
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +166,10 @@ def _analyze_machine_rows(
 def run_sensor_freeze_detection() -> bool:
     """Detect conservative V1 humidity sensor freeze behavior."""
 
+    started_at = datetime.now(UTC)
+    analyzed_machine_count = 0
+    detections = 0
+
     try:
         now = datetime.now(UTC)
         since = now - timedelta(hours=VALIDATION_SETTINGS.freeze_detection_window_hours)
@@ -192,11 +197,11 @@ def run_sensor_freeze_detection() -> bool:
             normalized_row["parsed_esp_log_at"] = parsed_timestamp
             rows_by_machine[str(machine_id)].append(normalized_row)
 
-        detections = 0
         alerts_created = 0
         alerts_resolved = 0
 
         for machine_id, machine_rows in rows_by_machine.items():
+            analyzed_machine_count += 1
             machine_rows.sort(key=lambda item: item["parsed_esp_log_at"])
             detected, created, resolved = _analyze_machine_rows(
                 machine_id=machine_id,
@@ -207,16 +212,43 @@ def run_sensor_freeze_detection() -> bool:
             alerts_created += created
             alerts_resolved += resolved
 
+        completed_at = datetime.now(UTC)
+        log_automation_execution(
+            automation_name=SENSOR_FREEZE_DETECTION.automation_id,
+            started_at=started_at,
+            completed_at=completed_at,
+            execution_duration_ms=round(
+                (completed_at - started_at).total_seconds() * 1000,
+                2,
+            ),
+            analyzed_machine_count=analyzed_machine_count,
+            detection_count=detections,
+            status="success",
+        )
         logger.info(
             "event=sensor_freeze_detection_finished automation_id=%s analyzed_machines=%s detections=%s alerts_created=%s alerts_resolved=%s status=success",
             SENSOR_FREEZE_DETECTION.automation_id,
-            len(rows_by_machine),
+            analyzed_machine_count,
             detections,
             alerts_created,
             alerts_resolved,
         )
         return True
-    except Exception:
+    except Exception as exc:
+        completed_at = datetime.now(UTC)
+        log_automation_execution(
+            automation_name=SENSOR_FREEZE_DETECTION.automation_id,
+            started_at=started_at,
+            completed_at=completed_at,
+            execution_duration_ms=round(
+                (completed_at - started_at).total_seconds() * 1000,
+                2,
+            ),
+            analyzed_machine_count=analyzed_machine_count,
+            detection_count=detections,
+            status="failed",
+            error_message=str(exc),
+        )
         logger.exception(
             "event=automation_failed automation_id=%s status=failed",
             SENSOR_FREEZE_DETECTION.automation_id,

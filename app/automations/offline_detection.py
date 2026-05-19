@@ -9,6 +9,7 @@ from app.database.queries import (
     has_unresolved_alert,
     resolve_alert,
 )
+from app.services.automation_execution_logger import log_automation_execution
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,10 @@ def _parse_esp_log_at(value: Any) -> datetime | None:
 def run_offline_detection() -> bool:
     """Detect offline machines and resolve offline alerts after recovery."""
 
+    started_at = datetime.now(UTC)
+    analyzed_machine_count = 0
+    detection_count = 0
+
     try:
         machine_states = get_all_latest_machine_states()
         now = datetime.now(UTC)
@@ -65,6 +70,7 @@ def run_offline_detection() -> bool:
                 )
                 continue
 
+            analyzed_machine_count += 1
             offline_duration = now - esp_log_at
 
             if offline_duration <= OFFLINE_DETECTION.offline_threshold:
@@ -95,6 +101,7 @@ def run_offline_detection() -> bool:
                 int(offline_duration.total_seconds()),
                 esp_log_at.isoformat(),
             )
+            detection_count += 1
 
             create_alert(
                 machine_id=machine_id,
@@ -109,8 +116,35 @@ def run_offline_detection() -> bool:
                 },
             )
 
+        completed_at = datetime.now(UTC)
+        log_automation_execution(
+            automation_name=OFFLINE_DETECTION.automation_id,
+            started_at=started_at,
+            completed_at=completed_at,
+            execution_duration_ms=round(
+                (completed_at - started_at).total_seconds() * 1000,
+                2,
+            ),
+            analyzed_machine_count=analyzed_machine_count,
+            detection_count=detection_count,
+            status="success",
+        )
         return True
-    except Exception:
+    except Exception as exc:
+        completed_at = datetime.now(UTC)
+        log_automation_execution(
+            automation_name=OFFLINE_DETECTION.automation_id,
+            started_at=started_at,
+            completed_at=completed_at,
+            execution_duration_ms=round(
+                (completed_at - started_at).total_seconds() * 1000,
+                2,
+            ),
+            analyzed_machine_count=analyzed_machine_count,
+            detection_count=detection_count,
+            status="failed",
+            error_message=str(exc),
+        )
         logger.exception(
             "event=automation_failed automation_id=%s status=failed",
             OFFLINE_DETECTION.automation_id,
