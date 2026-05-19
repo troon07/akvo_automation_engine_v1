@@ -300,3 +300,28 @@ Current architecture intentionally prioritizes:
 - correctness
 - conservative operational intelligence
 over premature optimization.
+
+## Automation Execution Observability
+
+Current execution observability stores summary-level automation execution metrics:
+- duration
+- analyzed machine count
+- detection count
+- status
+- error visibility
+
+This is intentionally lightweight and scalable.
+
+Future improvements MAY include:
+- execution trend aggregation
+- automation performance dashboards
+- noisy automation detection
+- automation usefulness scoring
+
+Current implementation intentionally avoids:
+- verbose traces
+- telemetry-level logging
+- distributed tracing
+- heavy observability frameworks
+
+to preserve operational simplicity and scalability.

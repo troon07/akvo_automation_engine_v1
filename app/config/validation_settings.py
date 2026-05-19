@@ -12,6 +12,8 @@ class ValidationSettings:
     freeze_detection_window_hours: int = 2
     humidity_variance_threshold: float = 0.2
     minimum_freeze_sample_count: int = 20
+    continuous_pump_runtime_window_minutes: int = 45
+    minimum_continuous_pump_samples: int = 15
 
 
 VALIDATION_SETTINGS = ValidationSettings()

@@ -50,8 +50,17 @@ class SensorFreezeDetectionSettings:
     severity: str = "warning"
 
 
+@dataclass(frozen=True)
+class ContinuousPumpRuntimeDetectionSettings:
+    automation_id: str = "continuous_pump_runtime_detection"
+    scheduler_interval_seconds: int = 900
+    alert_type: str = "continuous_pump_runtime_detected"
+    severity: str = "warning"
+
+
 OFFLINE_DETECTION = OfflineDetectionSettings()
 COMPRESSOR_RAPID_CYCLING = CompressorRapidCyclingSettings()
 FAN_COMPRESSOR_SEQUENCE = FanCompressorSequenceSettings()
 OPERATIONAL_INTEGRITY_VALIDATION = OperationalIntegrityValidationSettings()
 SENSOR_FREEZE_DETECTION = SensorFreezeDetectionSettings()
+CONTINUOUS_PUMP_RUNTIME_DETECTION = ContinuousPumpRuntimeDetectionSettings()
