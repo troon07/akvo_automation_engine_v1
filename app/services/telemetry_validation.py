@@ -3,6 +3,11 @@ from typing import Any
 
 from app.config.validation_settings import VALIDATION_SETTINGS
 from app.database.queries import create_alert, has_unresolved_alert, resolve_alert
+from app.scheduler.metrics import (
+    record_validation_detection,
+    record_validation_resolution,
+    register_validation_metric,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +20,18 @@ ALERT_INVALID_CURRENT = "validation_invalid_current"
 ALERT_INVALID_WATTS = "validation_invalid_watts"
 ALERT_POWER_STATE_MISMATCH = "validation_power_state_mismatch"
 ALERT_PUMP_TANK_CONFLICT = "validation_pump_tank_conflict"
+
+VALIDATION_ALERT_TYPES = (
+    ALERT_INVALID_HUMIDITY,
+    ALERT_INVALID_VOLTAGE,
+    ALERT_INVALID_CURRENT,
+    ALERT_INVALID_WATTS,
+    ALERT_POWER_STATE_MISMATCH,
+    ALERT_PUMP_TANK_CONFLICT,
+)
+
+for validation_alert_type in VALIDATION_ALERT_TYPES:
+    register_validation_metric(validation_alert_type)
 
 
 def _as_float(value: Any) -> float | None:
@@ -72,13 +89,22 @@ def _sync_validation_alert(
             message=message,
             metadata=metadata,
         )
+        if created_alert:
+            record_validation_detection(alert_type=alert_type, machine_id=machine_id)
+
         return 1, 1 if created_alert else 0, 0
 
     if not unresolved_exists:
         return 0, 0, 0
 
-    resolved_alert = resolve_alert(machine_id=machine_id, alert_type=alert_type)
-    if resolved_alert:
+    resolve_alert(machine_id=machine_id, alert_type=alert_type)
+    still_unresolved = has_unresolved_alert(
+        machine_id=machine_id,
+        alert_type=alert_type,
+    )
+
+    if not still_unresolved:
+        record_validation_resolution(alert_type=alert_type, machine_id=machine_id)
         logger.info(
             "event=operational_integrity_violation_resolved machine_id=%s alert_type=%s status=resolved",
             machine_id,
@@ -86,6 +112,11 @@ def _sync_validation_alert(
         )
         return 0, 0, 1
 
+    logger.debug(
+        "event=operational_integrity_violation_resolution_pending machine_id=%s alert_type=%s status=pending",
+        machine_id,
+        alert_type,
+    )
     return 0, 0, 0
 
 

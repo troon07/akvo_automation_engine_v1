@@ -5,7 +5,7 @@ from fastapi import FastAPI
 
 from app.config.settings import get_settings
 from app.database.supabase_client import get_supabase_client
-from app.scheduler.metrics import get_automation_metrics
+from app.scheduler.metrics import get_automation_metrics, get_validation_metrics
 from app.scheduler.scheduler import scheduler, shutdown_scheduler, start_scheduler
 
 logger = logging.getLogger(__name__)
@@ -76,4 +76,19 @@ def automation_metrics() -> dict[str, object]:
         return {
             "status": "degraded",
             "automations": {},
+        }
+
+
+@app.get("/validation-metrics", tags=["system"])
+def validation_metrics() -> dict[str, object]:
+    try:
+        return {
+            "status": "ok",
+            "validations": get_validation_metrics(),
+        }
+    except Exception:
+        logger.exception("event=validation_metrics_collection_failed status=failed")
+        return {
+            "status": "degraded",
+            "validations": {},
         }
