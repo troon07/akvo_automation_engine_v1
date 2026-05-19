@@ -42,7 +42,16 @@ class OperationalIntegrityValidationSettings:
     scheduler_interval_seconds: int = 60
 
 
+@dataclass(frozen=True)
+class SensorFreezeDetectionSettings:
+    automation_id: str = "sensor_freeze_detection"
+    scheduler_interval_seconds: int = 900
+    alert_type: str = "sensor_freeze_detected"
+    severity: str = "warning"
+
+
 OFFLINE_DETECTION = OfflineDetectionSettings()
 COMPRESSOR_RAPID_CYCLING = CompressorRapidCyclingSettings()
 FAN_COMPRESSOR_SEQUENCE = FanCompressorSequenceSettings()
 OPERATIONAL_INTEGRITY_VALIDATION = OperationalIntegrityValidationSettings()
+SENSOR_FREEZE_DETECTION = SensorFreezeDetectionSettings()

@@ -9,6 +9,9 @@ class ValidationSettings:
     voltage_max: float = 260.0
     compressor_min_watts: float = 100.0
     compressor_min_current: float = 1.0
+    freeze_detection_window_hours: int = 2
+    humidity_variance_threshold: float = 0.2
+    minimum_freeze_sample_count: int = 20
 
 
 VALIDATION_SETTINGS = ValidationSettings()

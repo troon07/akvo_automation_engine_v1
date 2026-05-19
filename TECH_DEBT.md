@@ -281,3 +281,22 @@ Optional real-time telemetry replay mode.
 
 Reason Deferred:
 Timestamp simulation is currently sufficient for backend validation.
+
+
+## Sensor Freeze Detection Scalability
+
+Current V1 sensor freeze detection fetches bounded recent telemetry rows and groups them in memory by machine.
+
+This is acceptable for current scale and early operational development.
+
+At larger fleet scale (1000–10000 machines), this approach may require optimization:
+- pre-aggregated telemetry windows
+- machine-batched analysis
+- streaming aggregation
+- edge-side temporal analysis
+
+Current architecture intentionally prioritizes:
+- simplicity
+- correctness
+- conservative operational intelligence
+over premature optimization.

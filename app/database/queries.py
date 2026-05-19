@@ -117,6 +117,30 @@ def get_fan_compressor_sensor_data_since(since: datetime) -> list[dict[str, Any]
         return []
 
 
+def get_humidity_freeze_sensor_data_since(since: datetime) -> list[dict[str, Any]]:
+    """Fetch recent rows needed for humidity sensor freeze detection."""
+
+    try:
+        client = get_supabase_client()
+        response = (
+            client.table("esp_sensor_data")
+            .select(
+                "machine_id, esp_log_at, relative_humidity, compressor_status, fan_status"
+            )
+            .gte("esp_log_at", since.isoformat())
+            .order("machine_id", desc=False)
+            .order("esp_log_at", desc=False)
+            .execute()
+        )
+        return response.data or []
+    except Exception:
+        logger.exception(
+            "event=get_humidity_freeze_sensor_data_since_failed since=%s status=failed",
+            since.isoformat(),
+        )
+        return []
+
+
 def create_alert(
     machine_id: str,
     alert_type: str,
